@@ -58,3 +58,57 @@ int main()
 
 #############################################################
 
+
+我还是应该把整体的步骤想一下，梳理清楚。核心在于服务器程序的编写，服务器是建立在tcp通信上的。
+所以首先第一步：服务器可以实现tcp通信，接收发送消息，提供多客户端连接，有客户端退出，线程结束。先需要实现这个功能，
+2再之后是在通信的基础之上识别接收的信息内容，以及发送内容，目录以及文件操作。
+3编写客户端程序。
+4自己电脑环回测试
+5跟vps测试
+6想法实现跟实验室自己电脑的通信。
+
+
+#include <stdio.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+void *recv_fun(void *p)
+{
+	int fd; 
+	int *q = p;
+	fd  = *q;		//fd = *((int *)p);
+	char buf[100] = { 0 };
+	while(1)
+	{
+		if(recv(fd, buf, sizeof(buf), 0) <= 0)
+			return 0;
+		printf("recv is %s\n", buf);
+		send(fd, buf, sizeof(buf), 0);
+	}
+}
+int main(int argc, char *argv[])
+{	
+	pthread_t id;
+	char buf[100] = { 0 };
+	int fd = socket(AF_INET, SOCK_STREAM, 0);
+	struct sockaddr_in myaddr;
+	myaddr.sin_family = AF_INET;
+	myaddr.sin_port = htons(55555);   //不要超过65535
+	myaddr.sin_addr.s_addr = htonl(INADDR_ANY);  //inet_addr("127.0.0.1");
+	bind(fd, (struct sockaddr *)&myaddr, sizeof(myaddr));
+	listen(fd, 5);
+	while(1)
+	{
+		int newfd =  accept(fd, NULL, NULL);		//阻塞等待客户端连接
+		pthread_create(&id, NULL, recv_fun, &newfd);	//一旦有客户端连接，就创建新线程
+	}
+}
+
+对于有客户端退出，线程结束，是客户端输入了exit，服务器也会接收，如果接收到这个命令，那么结束此线程。
+ int pthread_cancel(pthread_t thread);    成功：0；失败：错误号
+或者
+线程可以调用pthread_exit终止自己
+
+
+接下来客户端实现跟服务器实现发送接收消息。
+
+
